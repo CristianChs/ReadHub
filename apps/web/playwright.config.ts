@@ -125,11 +125,20 @@ export default defineConfig({
   //
   //   - En local: `next dev`, y si ya tienes un servidor levantado lo reutiliza
   //     (`reuseExistingServer`), así que no te lo pisa ni tarda en arrancar.
-  //   - En CI: build de producción + `next start`. El servidor de desarrollo
-  //     compila cada ruta la primera vez que se visita, lo que provoca timeouts
-  //     falsos en la primera prueba que toca cada página.
+  //   - En CI: SOLO `next start`. El build de producción lo hace el workflow en
+  //     un paso PROPIO, antes de llamar a Playwright.
+  //
+  // Que el build viva fuera de aquí no es un detalle de estilo, son dos cosas:
+  //
+  //   1. Diagnóstico. Metido dentro de `webServer.command`, un fallo de compilación
+  //      se reporta como "Process from config.webServer was not able to start.
+  //      Exit code: 1" y el error real queda enterrado. En un paso propio, el log
+  //      del CI muestra el error de TypeScript o de Next tal cual.
+  //   2. Timeout. Este presupuesto cubre el ARRANQUE del servidor, no una
+  //      compilación entera: un `next build` en un runner de 2 vCPU se come los
+  //      120 s él solo y Playwright mataría el proceso antes de empezar.
   webServer: {
-    command: CI ? "npm run build && npm run start" : "npm run dev",
+    command: CI ? "npm run start" : "npm run dev",
     url: BASE_URL,
     reuseExistingServer: !CI,
     timeout: 120_000,
