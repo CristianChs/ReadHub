@@ -1,0 +1,18 @@
+{
+  "name": "@readhub/database",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@readhub/types": "*",
+    "@supabase/supabase-js": "^2.47.10"
+  }
+}

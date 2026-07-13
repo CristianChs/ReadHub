@@ -1,0 +1,7 @@
+Metodologías ágiles en equipos pequeños
+
+Este documento de prueba existe para ejercitar el flujo de publicación de ReadHub de extremo a extremo. Su primer párrafo es el que la aplicación deriva como resumen del artículo.
+
+Scrum organiza el trabajo en sprints de duración fija. El equipo selecciona elementos del backlog del producto y se compromete a entregarlos como un incremento terminado.
+
+La retrospectiva cierra cada sprint: el equipo revisa qué funcionó, qué no, y acuerda una mejora concreta para el siguiente ciclo.

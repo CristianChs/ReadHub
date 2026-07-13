@@ -1,0 +1,43 @@
+# dependencies
+#
+# SIN barra inicial, a propósito: en un monorepo, `/node_modules` solo ignoraría
+# el del raíz, y npm workspaces también crea `apps/*/node_modules` y
+# `packages/*/node_modules`. Lo mismo vale para `.next/`, que vive en apps/web.
+node_modules/
+
+# next.js
+.next/
+out/
+
+# production
+build/
+
+# Caché de Turborepo
+.turbo/
+
+# env
+.env
+.env*.local
+
+# misc
+.DS_Store
+*.pem
+npm-debug.log*
+
+# typescript
+*.tsbuildinfo
+
+# Build del servidor MCP
+apps/mcp/dist/
+
+# Playwright (E2E)
+apps/web/e2e/playwright-report/
+apps/web/e2e/test-results/
+apps/web/e2e/.auth/
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# Cobertura de Vitest
+coverage/

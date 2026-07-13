@@ -1,0 +1,15 @@
+{
+  "$comment": [
+    "moduleResolution 'Bundler' (no 'NodeNext') porque esta app la empaqueta tsup/esbuild.",
+    "Con 'NodeNext', @supabase/supabase-js resolvía a index.d.cts dentro de los paquetes",
+    "compartidos y a index.d.mts aquí: dos clases SupabaseClient incompatibles, y ningún",
+    "service aceptaba el cliente. Ver 'Resolución de módulos' en el README."
+  ],
+  "extends": "../../packages/config/tsconfig.node.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "baseUrl": "."
+  },
+  "include": ["src/**/*.ts", "tsup.config.ts"]
+}

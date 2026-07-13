@@ -1,0 +1,216 @@
+name: CI
+
+# Validación completa del monorepo. NO despliega nada: no hay ningún job de
+# deploy, ni credenciales de producción, ni acceso a la infraestructura real.
+on:
+  pull_request:
+    branches: [main, master]
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+# Un push nuevo sobre la misma rama cancela la ejecución anterior: no tiene
+# sentido gastar minutos en un resultado que ya quedó obsoleto.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Solo lectura del repositorio. El pipeline no escribe nada en GitHub.
+permissions:
+  contents: read
+
+env:
+  # Debe coincidir con el Node del entorno de desarrollo (v24), para que CI y la
+  # máquina del equipo ejecuten el MISMO runtime. Una diferencia aquí es la
+  # receta del clásico "en mi máquina funciona": un fallo que solo aparece en CI
+  # (o al revés) y que cuesta horas localizar.
+  NODE_VERSION: "24"
+  # Debe coincidir con "packageManager" en package.json. actions/setup-node no
+  # fija la versión de npm por sí solo: usa la que venga con el Node resuelto,
+  # que avanza con el tiempo. Sin este pin, `npm ci` puede fallar con
+  # "Missing: ... from lock file" en cuanto un npm más nuevo resuelva alguna
+  # dependencia opcional transitiva distinta a como quedó grabada en el lockfile.
+  NPM_VERSION: "11.16.0"
+
+jobs:
+  # ==========================================================================
+  # 1. Validación estática y pruebas unitarias. Rápido y sin Docker: si esto
+  #    falla, no merece la pena levantar Supabase ni un navegador.
+  # ==========================================================================
+  checks:
+    name: TypeScript, ESLint y Vitest
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          # Cachea ~/.npm a partir del hash de package-lock.json.
+          cache: npm
+
+      # Caché del filesystem cache de Turborepo. Turbo decide acierto/fallo por
+      # hash del contenido real, así que una clave amplia con `restore-keys` es
+      # segura: en el peor caso no acelera nada, pero nunca sirve un resultado
+      # obsoleto.
+      - name: Restaurar caché de Turborepo
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-
+
+      - name: Fijar la versión de npm (coincide con packageManager)
+        run: npm install -g npm@${{ env.NPM_VERSION }}
+
+      - name: Instalar dependencias (npm workspaces)
+        run: npm ci
+
+      # `turbo run typecheck` -> tsc --noEmit en los 8 paquetes del monorepo.
+      - name: TypeScript
+        run: npm run typecheck
+
+      - name: ESLint
+        run: npm run lint
+
+      # `vitest run --coverage` desde la raíz: ejecuta los 6 proyectos (shared,
+      # ai, services, rag, web, mcp) en una sola pasada y deja UN informe de
+      # cobertura consolidado en ./coverage.
+      - name: Vitest (con cobertura)
+        run: npm run test:coverage
+
+      - name: Publicar cobertura como artefacto
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitest-coverage
+          path: coverage/
+          retention-days: 7
+          if-no-files-found: warn
+
+  # ==========================================================================
+  # 2. End-to-end con Playwright, contra un Supabase LOCAL y efímero levantado
+  #    dentro del propio runner (Supabase CLI + Docker, ya preinstalado en los
+  #    runners ubuntu-latest).
+  #
+  #    Esto es lo que permite cumplir "no incluir credenciales sensibles": el
+  #    login real de auth.spec.ts se autentica contra usuarios sembrados por
+  #    supabase/seed.sql, y las claves que emite un stack local de Supabase son
+  #    públicas e idénticas en cualquier máquina. No hace falta ni un secreto, y
+  #    el stack entero muere con el runner.
+  # ==========================================================================
+  e2e:
+    name: End-to-end (Playwright)
+    runs-on: ubuntu-latest
+    needs: checks
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Restaurar caché de Turborepo
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-
+
+      - name: Fijar la versión de npm (coincide con packageManager)
+        run: npm install -g npm@${{ env.NPM_VERSION }}
+
+      - name: Instalar dependencias (npm workspaces)
+        run: npm ci
+
+      # Los navegadores pesan ~150 MB y no cambian entre commits: se cachean por
+      # la versión de Playwright que fija el lockfile.
+      - name: Restaurar caché de navegadores de Playwright
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      # Solo Chromium: mantiene el job rápido. Firefox y WebKit quedan
+      # disponibles para ejecutarlos en local. `--with-deps` instala también las
+      # librerías de sistema que el navegador necesita en Ubuntu.
+      - name: Instalar navegador de Playwright (Chromium)
+        run: npm run test:e2e:install
+
+      - name: Instalar Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # `supabase/config.toml` ya está versionado, así que este paso NO hace nada
+      # en condiciones normales: el stack local queda definido por el fichero del
+      # repositorio, no por lo que decida generar el runner. Se conserva como red
+      # de seguridad —si alguien lo borrara, el job seguiría arrancando— pero la
+      # configuración reproducible es la versionada.
+      - name: Inicializar la configuración local de Supabase (red de seguridad)
+        run: |
+          if [ ! -f supabase/config.toml ]; then
+            supabase init
+          fi
+
+      - name: Levantar Supabase local
+        run: supabase start
+
+      # Aplica supabase/migrations/* y siembra supabase/seed.sql, que crea los
+      # usuarios de prueba (writer1@readhub.test…) con los que se autentica el E2E.
+      - name: Aplicar migraciones y datos sembrados
+        run: supabase db reset
+
+      # Credenciales del stack efímero de ESTE job, no secretos del proyecto: se
+      # leen en caliente en vez de fijarlas en el workflow.
+      - name: Leer credenciales del Supabase local
+        id: supabase
+        run: |
+          STATUS=$(supabase status -o json)
+          echo "api_url=$(echo "$STATUS" | jq -r '.API_URL')" >> "$GITHUB_OUTPUT"
+          echo "anon_key=$(echo "$STATUS" | jq -r '.ANON_KEY')" >> "$GITHUB_OUTPUT"
+
+      # playwright.config.ts levanta la app por su cuenta: en CI hace build de
+      # producción + `next start` (el servidor de desarrollo compila cada ruta en
+      # la primera visita y provocaría timeouts falsos).
+      #
+      # No se define E2E_USER_EMAIL/PASSWORD: los valores por defecto de
+      # e2e/data/users.ts ya apuntan al usuario sembrado.
+      - name: Ejecutar pruebas E2E
+        working-directory: apps/web
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ steps.supabase.outputs.api_url }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ steps.supabase.outputs.anon_key }}
+        run: npx playwright test --project=chromium
+
+      # El reporter "github" (que playwright.config.ts activa cuando CI=true)
+      # ya anota cada fallo sobre el diff del PR. Esto sube, además, el informe
+      # HTML navegable con los screenshots, los vídeos y las trazas de los
+      # fallos, más el junit.xml. Solo cuando algo ha fallado: una ejecución en
+      # verde no genera artefactos.
+      - name: Publicar reporte de Playwright (solo si falló)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            apps/web/e2e/playwright-report/
+            apps/web/e2e/test-results/
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Detener Supabase local
+        if: always()
+        run: supabase stop

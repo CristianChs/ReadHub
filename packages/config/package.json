@@ -1,0 +1,6 @@
+{
+  "name": "@readhub/config",
+  "version": "0.1.0",
+  "private": true,
+  "files": ["tsconfig.node.json", "tsconfig.next.json"]
+}

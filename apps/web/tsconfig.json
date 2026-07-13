@@ -1,0 +1,45 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "preserve",
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "./*"
+      ],
+      "@readhub/types": [
+        "../../packages/types/src/index.ts"
+      ],
+      "@readhub/database": [
+        "../../packages/database/src/index.ts"
+      ],
+      "@readhub/shared": [
+        "../../packages/shared/src/index.ts"
+      ],
+      "@readhub/ai": [
+        "../../packages/ai/src/index.ts"
+      ],
+      "@readhub/services": [
+        "../../packages/services/src/index.ts"
+      ],
+      "@readhub/rag": [
+        "../../packages/rag/src/index.ts"
+      ]
+    },
+    "incremental": true
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "allowJs": true,
+    "baseUrl": ".",
+    "paths": {
+      "@readhub/types": [
+        "packages/types/src/index.ts"
+      ],
+      "@readhub/database": [
+        "packages/database/src/index.ts"
+      ],
+      "@readhub/shared": [
+        "packages/shared/src/index.ts"
+      ],
+      "@readhub/ai": [
+        "packages/ai/src/index.ts"
+      ],
+      "@readhub/services": [
+        "packages/services/src/index.ts"
+      ],
+      "@readhub/rag": [
+        "packages/rag/src/index.ts"
+      ]
+    }
+  },
+  "exclude": [
+    "node_modules",
+    "**/.next",
+    "**/dist"
+  ]
+}

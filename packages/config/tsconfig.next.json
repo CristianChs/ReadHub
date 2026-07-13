@@ -1,0 +1,5 @@
+{
+  "$comment": "Preset para apps Next.js del monorepo.",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "jsx": "preserve", "plugins": [{ "name": "next" }] }
+}

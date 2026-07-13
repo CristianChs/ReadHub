@@ -1,0 +1,5 @@
+{
+  "$comment": "Preset para paquetes y apps de Node (p. ej. el futuro servidor MCP).",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "lib": ["esnext"], "types": ["node"] }
+}

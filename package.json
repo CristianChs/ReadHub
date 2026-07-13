@@ -1,0 +1,41 @@
+{
+  "name": "readhub",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "npm@11.16.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "dev:web": "npm run dev --workspace=@readhub/web",
+    "build:web": "npm run build --workspace=@readhub/web",
+
+    "test": "turbo run test",
+    "test:watch": "vitest",
+    "test:e2e": "npm run test:e2e --workspace=@readhub/web",
+    "test:e2e:ui": "npm run test:e2e:ui --workspace=@readhub/web",
+    "test:e2e:report": "npm run test:e2e:report --workspace=@readhub/web",
+    "test:e2e:install": "npm run test:e2e:install --workspace=@readhub/web",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2",
+    "@types/node": "^22.10.2",
+    "@vitest/coverage-v8": "^3.2.4",
+    "@vitest/ui": "^3.2.4",
+    "vitest": "^3.2.4"
+  },
+  "dependencies": {
+    "zod": "4.4.3"
+  },
+  "overrides": {
+    "zod": "4.4.3"
+  }
+}

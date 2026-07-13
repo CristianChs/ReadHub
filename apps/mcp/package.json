@@ -1,0 +1,39 @@
+{
+  "name": "@readhub/mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Servidor MCP de ReadHub. Expone el conocimiento de la plataforma a clientes MCP.",
+  "type": "module",
+  "bin": {
+    "readhub-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo \"@readhub/mcp: sin lint configurado\"",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@readhub/database": "*",
+    "@readhub/rag": "*",
+    "@readhub/services": "*",
+    "@readhub/shared": "*",
+    "@readhub/types": "*",
+    "@supabase/supabase-js": "^2.47.10",
+    "mammoth": "^1.12.0",
+    "openai": "^4.77.0",
+    "unpdf": "^1.6.2",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsup": "^8.3.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^3.2.4"
+  }
+}
