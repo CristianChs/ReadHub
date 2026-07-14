@@ -239,3 +239,177 @@ jobs:
       - name: Detener Supabase local
         if: always()
         run: supabase stop
+
+  # ==========================================================================
+  # 3. Rendimiento. Se ejecuta SOLO si `checks` y `e2e` pasaron: no tiene
+  #    sentido medir la velocidad de una aplicación que todavía no se sabe si
+  #    es correcta. Un LCP excelente sobre una pantalla rota no vale nada.
+  #
+  #    Este job es el GATE de despliegue: si el presupuesto de bundle o las
+  #    auditorías de Lighthouse no se cumplen, `deploy` no llega a arrancar.
+  # ==========================================================================
+  performance:
+    name: Rendimiento (bundle + Lighthouse)
+    runs-on: ubuntu-latest
+    needs: [checks, e2e]
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Fijar la versión de npm (coincide con packageManager)
+        run: npm install -g npm@${{ env.NPM_VERSION }}
+
+      - name: Instalar dependencias (npm workspaces)
+        run: npm ci
+
+      # Lighthouse necesita un Chrome real. En vez de confiar en el que traiga
+      # la imagen del runner (que cambia sin avisar), se reutiliza el Chromium
+      # que Playwright ya fija por lockfile: misma versión aquí y en local, y
+      # una medición no es comparable si el navegador cambia entre ejecuciones.
+      - name: Restaurar caché de navegadores de Playwright
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Instalar Chromium
+        run: npm run test:e2e:install
+
+      - name: Resolver la ruta de Chrome para Lighthouse
+        working-directory: apps/web
+        run: |
+          CHROME=$(node -e "console.log(require('playwright-core').chromium.executablePath())")
+          echo "CHROME_PATH=$CHROME" >> "$GITHUB_ENV"
+          echo "Chrome: $CHROME"
+
+      # El build de producción es el ARTEFACTO QUE SE MIDE. Se compila una sola
+      # vez y de él salen las tres cosas: el treemap del analizador, el
+      # presupuesto de bundle y el servidor que audita Lighthouse.
+      #
+      # Las claves apuntan a un Supabase inexistente a propósito: las pantallas
+      # auditadas (/login, /register) son públicas y no consultan datos. Lo que
+      # se mide es el coste de entrega —JS, CSS, fuentes, imágenes—, que no
+      # depende de la base. Ver la nota sobre cobertura en el informe.
+      - name: Build de producción (con analizador de bundle)
+        working-directory: apps/web
+        env:
+          ANALYZE: "true"
+          NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321"
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-lighthouse-anon-key"
+        run: npm run build
+
+      # Control 1 — Presupuesto de bundle. Falla si alguna ruta supera el
+      # límite de First Load JS (gzip). Detecta una regresión de peso ANTES de
+      # que llegue a notarse en la puntuación de Lighthouse.
+      - name: Presupuesto de bundle
+        working-directory: apps/web
+        run: npm run bundle:budget -- --budget-kb 220 --json bundle-report.json
+
+      # Control 2 — Lighthouse. Levanta `next start`, audita las rutas públicas
+      # 3 veces cada una (la mediana absorbe el ruido del runner) y verifica los
+      # umbrales de lighthouserc.json. Falla el job si no se cumplen.
+      - name: Auditoría de Lighthouse
+        working-directory: apps/web
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321"
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-lighthouse-anon-key"
+        run: npm run lighthouse
+
+      # Se publica SIEMPRE, también (y sobre todo) cuando el job ha fallado:
+      # el informe es justamente lo que explica por qué no se cumplió el umbral.
+      - name: Publicar reporte de rendimiento
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: performance-report
+          path: |
+            apps/web/lighthouse-report/
+            apps/web/bundle-report.json
+            apps/web/.next/analyze/
+          retention-days: 14
+          if-no-files-found: warn
+
+  # ==========================================================================
+  # 4. Despliegue a Vercel. Depende de TODO lo anterior: tipos, lint, unitarias,
+  #    E2E, presupuesto de bundle y Lighthouse. Si cualquiera falla, este job
+  #    ni siquiera se encola — ese es el bloqueo pedido.
+  #
+  #    Solo se despliega a producción en push a main. Un Pull Request ejecuta
+  #    todas las validaciones (incluidas las de rendimiento) pero NO publica:
+  #    el pipeline le dice al autor si su rama es desplegable, sin desplegarla.
+  # ==========================================================================
+  deploy:
+    name: Desplegar en Vercel (producción)
+    runs-on: ubuntu-latest
+    needs: [checks, e2e, performance]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    timeout-minutes: 15
+
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      # Sin las credenciales, el job se detiene con un mensaje claro en vez de
+      # fallar veinte líneas más abajo con un error críptico de la CLI.
+      - name: Verificar credenciales de Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          missing=""
+          [ -z "$VERCEL_TOKEN" ]      && missing="$missing VERCEL_TOKEN"
+          [ -z "$VERCEL_ORG_ID" ]     && missing="$missing VERCEL_ORG_ID"
+          [ -z "$VERCEL_PROJECT_ID" ] && missing="$missing VERCEL_PROJECT_ID"
+          if [ -n "$missing" ]; then
+            echo "::error::Faltan secretos de Vercel:$missing"
+            echo "Configúralos en Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+      # `vercel pull` trae la configuración del proyecto Y sus variables de
+      # entorno de producción. Por eso las claves de Supabase NO viven en este
+      # workflow: viven en Vercel, que es su sitio.
+      - name: Descargar la configuración del proyecto
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: npx vercel@latest pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      # Se compila en el runner (`--prebuilt` en el paso siguiente) en lugar de
+      # dejar que Vercel compile: así se despliega EXACTAMENTE el mismo commit
+      # que acaba de pasar las auditorías, no una recompilación posterior que
+      # nadie ha verificado.
+      - name: Build de producción para Vercel
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: npx vercel@latest build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Desplegar
+        id: deploy
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          URL=$(npx vercel@latest deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "::notice::Desplegado en $URL"
