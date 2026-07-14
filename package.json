@@ -38,6 +38,6 @@
     "zod": "4.4.3"
   },
   "optionalDependencies": {
-    "@tailwindcss/oxide-linux-x64-gnu": "^4.3.2"
+    "@tailwindcss/oxide-linux-x64-gnu": "4.3.2"
   }
 }
