@@ -149,10 +149,21 @@ jobs:
       - name: Instalar navegador de Playwright (Chromium)
         run: npm run test:e2e:install
 
+      # La versión va FIJADA, no en "latest", por dos motivos:
+      #
+      #   1. `latest` obliga a la acción a preguntarle a la API de GitHub cuál es
+      #      la última release, sin autenticar. Los runners comparten IP, así que
+      #      ese límite se agota a menudo y el job muere con
+      #      "Failed to resolve latest Supabase CLI release: rate limit exceeded".
+      #      Fijando la versión no hay consulta que hacer.
+      #   2. Determinismo: con `latest`, una release nueva de la CLI podía cambiar
+      #      el comportamiento del CI sin que nadie tocara una línea del proyecto.
+      #
+      # Para actualizarla: https://github.com/supabase/cli/releases
       - name: Instalar Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.109.1
 
       # `supabase/config.toml` ya está versionado, así que este paso NO hace nada
       # en condiciones normales: el stack local queda definido por el fichero del
