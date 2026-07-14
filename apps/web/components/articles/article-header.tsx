@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { ImageOff } from "lucide-react";
 
 import { Avatar } from "@/components/ui/avatar";
@@ -26,11 +27,15 @@ export function ArticleHeader({
     <header className="space-y-6">
       <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-muted sm:aspect-[21/9]">
         {imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          // Portada del detalle: es el elemento LCP de esta pantalla, así que
+          // se precarga (`priority`) en vez de descubrirse al hidratar.
+          <Image
             src={imageUrl}
             alt=""
-            className="size-full object-cover"
+            fill
+            sizes="(min-width: 768px) 48rem, 100vw"
+            priority
+            className="object-cover"
           />
         ) : (
           <div className="flex size-full items-center justify-center text-muted-foreground">

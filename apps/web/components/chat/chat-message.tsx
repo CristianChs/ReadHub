@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Bot } from "lucide-react";
 
 import { Avatar } from "@/components/ui/avatar";
@@ -12,7 +13,7 @@ interface ChatMessageProps {
 }
 
 /** Un turno de la conversación. Presentacional: no contiene lógica. */
-export function ChatMessage({ message, userName }: ChatMessageProps) {
+function ChatMessageBase({ message, userName }: ChatMessageProps) {
   const isUser = message.role === "user";
 
   return (
@@ -59,3 +60,13 @@ export function ChatMessage({ message, userName }: ChatMessageProps) {
     </article>
   );
 }
+
+// `useChat` reemplaza el array de mensajes en CADA token del streaming, pero
+// solo cambia el objeto del mensaje que está creciendo: los demás conservan su
+// identidad. Sin memo, un token repintaba la conversación entera; con ella,
+// solo se re-renderiza el turno que realmente cambió.
+//
+// La comparación por defecto (superficial sobre las props) basta: `message` es
+// un objeto nuevo únicamente cuando su contenido cambió, y `userName` es un
+// string estable.
+export const ChatMessage = memo(ChatMessageBase);
