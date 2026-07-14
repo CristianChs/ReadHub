@@ -68,9 +68,13 @@
 :root {
   --radius: 0.75rem;
 
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
-    Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-serif: "Lora", Georgia, Cambria, "Times New Roman", Times, serif;
+  /* Las familias las inyecta next/font desde app/layout.tsx (--font-inter,
+     --font-lora): auto-alojadas, precargadas y con fallback ajustado en
+     métricas. El resto de la pila sigue siendo el respaldo del sistema. */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-serif: var(--font-lora), Georgia, Cambria, "Times New Roman", Times,
+    serif;
   --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas,
     "Liberation Mono", monospace;
 

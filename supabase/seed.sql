@@ -25,31 +25,48 @@
 -- automáticamente la fila correspondiente en public.profiles (con role
 -- 'reader' por defecto). El rol real de cada usuario se ajusta en el paso 2.
 
+-- Las columnas de token (confirmation_token, recovery_token, email_change…) se
+-- rellenan explícitamente con CADENA VACÍA, no se dejan a su valor por defecto.
+--
+-- No es cosmética: el servidor de autenticación (GoTrue) está escrito en Go y
+-- lee esas columnas en campos de tipo `string`, que NO admiten NULL. Si se
+-- quedan a NULL, PostgreSQL acepta el seed sin protestar —el `db reset` pasa en
+-- verde— pero el primer intento de login revienta al leer la fila y devuelve un
+-- opaco `500 Database error querying schema`. El fallo no aparece al sembrar,
+-- sino al autenticarse.
 insert into auth.users (
   instance_id, id, aud, role, email, encrypted_password,
   email_confirmed_at, created_at, updated_at,
-  raw_app_meta_data, raw_user_meta_data
+  raw_app_meta_data, raw_user_meta_data,
+  confirmation_token, recovery_token, email_change,
+  email_change_token_new, email_change_token_current,
+  phone_change, phone_change_token, reauthentication_token
 ) values
   ('00000000-0000-0000-0000-000000000000', '10000000-0000-0000-0000-000000000001',
    'authenticated', 'authenticated', 'admin@readhub.test',
    crypt('ReadHub123!', gen_salt('bf')), now(), now(), now(),
-   '{"provider":"email","providers":["email"]}', '{}'),
+   '{"provider":"email","providers":["email"]}', '{}',
+   '', '', '', '', '', '', '', ''),
   ('00000000-0000-0000-0000-000000000000', '10000000-0000-0000-0000-000000000002',
    'authenticated', 'authenticated', 'writer1@readhub.test',
    crypt('ReadHub123!', gen_salt('bf')), now(), now(), now(),
-   '{"provider":"email","providers":["email"]}', '{}'),
+   '{"provider":"email","providers":["email"]}', '{}',
+   '', '', '', '', '', '', '', ''),
   ('00000000-0000-0000-0000-000000000000', '10000000-0000-0000-0000-000000000003',
    'authenticated', 'authenticated', 'writer2@readhub.test',
    crypt('ReadHub123!', gen_salt('bf')), now(), now(), now(),
-   '{"provider":"email","providers":["email"]}', '{}'),
+   '{"provider":"email","providers":["email"]}', '{}',
+   '', '', '', '', '', '', '', ''),
   ('00000000-0000-0000-0000-000000000000', '10000000-0000-0000-0000-000000000004',
    'authenticated', 'authenticated', 'reader1@readhub.test',
    crypt('ReadHub123!', gen_salt('bf')), now(), now(), now(),
-   '{"provider":"email","providers":["email"]}', '{}'),
+   '{"provider":"email","providers":["email"]}', '{}',
+   '', '', '', '', '', '', '', ''),
   ('00000000-0000-0000-0000-000000000000', '10000000-0000-0000-0000-000000000005',
    'authenticated', 'authenticated', 'reader2@readhub.test',
    crypt('ReadHub123!', gen_salt('bf')), now(), now(), now(),
-   '{"provider":"email","providers":["email"]}', '{}');
+   '{"provider":"email","providers":["email"]}', '{}',
+   '', '', '', '', '', '', '', '');
 
 insert into auth.identities (
   id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { ImageOff } from "lucide-react";
 
@@ -18,8 +19,18 @@ export interface ArticleCardData {
   likes: number;
 }
 
+interface ArticleCardProps {
+  article: ArticleCardData;
+  /**
+   * Las tarjetas visibles sin desplazarse compiten por ser el elemento LCP:
+   * se cargan con prioridad. El resto va en diferido. Lo decide quien pinta la
+   * grilla, que es el único que conoce la posición.
+   */
+  priority?: boolean;
+}
+
 // Tarjeta de artículo. Toda la superficie es un enlace al detalle.
-export function ArticleCard({ article }: { article: ArticleCardData }) {
+export function ArticleCard({ article, priority = false }: ArticleCardProps) {
   return (
     <Link
       href={`/article/${article.id}`}
@@ -28,12 +39,16 @@ export function ArticleCard({ article }: { article: ArticleCardData }) {
       <Card className="flex h-full flex-col overflow-hidden transition-shadow group-hover:shadow-md">
         <div className="relative aspect-[16/9] w-full overflow-hidden bg-muted">
           {article.imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            // `sizes` describe el ancho real que ocupa la tarjeta en la grilla
+            // (1 / 2 / 3 columnas): sin él, Next sirve la variante de ancho
+            // completo también en móvil.
+            <Image
               src={article.imageUrl}
               alt=""
-              loading="lazy"
-              className="size-full object-cover transition-transform duration-300 group-hover:scale-105"
+              fill
+              sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+              priority={priority}
+              className="object-cover transition-transform duration-300 group-hover:scale-105"
             />
           ) : (
             <div className="flex size-full items-center justify-center text-muted-foreground">

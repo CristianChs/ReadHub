@@ -41,9 +41,23 @@ export function ChatWindow() {
     last.sources === undefined;
 
   // Desplazamiento automático a lo más reciente, también mientras llega el texto.
+  //
+  // `messages` cambia con cada token, así que esto se dispara decenas de veces
+  // por respuesta. Dos precauciones:
+  //   * el scroll se agenda en un frame de animación y se cancela el pendiente,
+  //     de modo que una ráfaga de tokens produce UN solo desplazamiento;
+  //   * durante el streaming el salto es instantáneo ("auto"): encadenar
+  //     animaciones suaves que se cancelan entre sí provocaba tirones y
+  //     mantenía el hilo principal ocupado.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages]);
+    const frame = requestAnimationFrame(() => {
+      bottomRef.current?.scrollIntoView({
+        behavior: loading ? "auto" : "smooth",
+        block: "end",
+      });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [messages, loading]);
 
   return (
     <div className="flex h-[calc(100dvh-11rem)] flex-col gap-4 sm:h-[calc(100dvh-13rem)]">

@@ -41,3 +41,19 @@ apps/web/e2e/.auth/
 
 # Cobertura de Vitest
 coverage/
+
+# Rendimiento — artefactos generados por el pipeline (Lighthouse, presupuesto
+# de bundle). El treemap del analizador vive en .next/analyze/, ya ignorado.
+apps/web/lighthouse-report/
+apps/web/bundle-report.json
+.lighthouseci/
+
+# Configuración local de Claude Code.
+#
+# NO se versiona: la lista de permisos va acumulando los comandos autorizados
+# TAL CUAL se ejecutaron, incluyendo los que llevan credenciales en línea
+# (E2E_USER_PASSWORD=...). En un repositorio público eso es una fuga esperando
+# a ocurrir. Las skills del proyecto (.claude/skills/) SÍ se versionan: son
+# documentación del equipo y no contienen secretos.
+.claude/settings.json
+.claude/settings.local.json
