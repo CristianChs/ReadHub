@@ -201,13 +201,32 @@ jobs:
       # No expone nada: es un stack local y efímero con claves públicas.
       - name: (diagnóstico) Probar el login contra el Supabase local
         run: |
-          echo "--- POST /auth/v1/token?grant_type=password"
-          curl -s -i -X POST \
+          CODE=$(curl -s -o /tmp/auth.json -w "%{http_code}" -X POST \
             "${{ steps.supabase.outputs.api_url }}/auth/v1/token?grant_type=password" \
             -H "apikey: ${{ steps.supabase.outputs.anon_key }}" \
             -H "Content-Type: application/json" \
-            -d '{"email":"writer1@readhub.test","password":"ReadHub123!"}' \
-            | head -30
+            -d '{"email":"writer1@readhub.test","password":"ReadHub123!"}')
+
+          # Se vuelca al RESUMEN del job (no solo al log): el resumen es legible
+          # por la API pública, el log exige permisos de admin del repositorio.
+          {
+            echo "### Diagnóstico de login (Supabase local)"
+            echo ""
+            echo "HTTP: **$CODE**"
+            echo ""
+            echo '```json'
+            # Se recorta el access_token: es de un stack efímero, pero no hay
+            # razón para volcar tokens en un resumen público.
+            head -c 400 /tmp/auth.json | sed -E 's/"(access_token|refresh_token)":"[^"]*"/"\1":"<omitido>"/g'
+            echo ""
+            echo '```'
+            echo ""
+            echo "Usuarios existentes en auth.users:"
+            echo '```'
+            supabase --workdir . db dump --local --data-only --schema auth 2>/dev/null \
+              | grep -oE "[a-z0-9]+@readhub\.test" | sort -u || echo "(no se pudo listar)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # El build vive en un paso PROPIO, no dentro de `webServer.command` de
       # Playwright. Si la compilación falla, aquí se ve el error real (TypeScript,
