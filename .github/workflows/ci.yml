@@ -193,6 +193,22 @@ jobs:
           echo "api_url=$(echo "$STATUS" | jq -r '.API_URL')" >> "$GITHUB_OUTPUT"
           echo "anon_key=$(echo "$STATUS" | jq -r '.ANON_KEY')" >> "$GITHUB_OUTPUT"
 
+      # DIAGNÓSTICO TEMPORAL — quitar cuando el E2E esté verde.
+      # El login del setup de Playwright falla en el runner y el navegador no
+      # dice por qué. Esto pregunta directamente al servidor de auth con las
+      # credenciales sembradas y enseña su respuesta cruda: distingue un
+      # "Invalid login credentials" (seed mal) de un 500 del servidor (esquema).
+      # No expone nada: es un stack local y efímero con claves públicas.
+      - name: (diagnóstico) Probar el login contra el Supabase local
+        run: |
+          echo "--- POST /auth/v1/token?grant_type=password"
+          curl -s -i -X POST \
+            "${{ steps.supabase.outputs.api_url }}/auth/v1/token?grant_type=password" \
+            -H "apikey: ${{ steps.supabase.outputs.anon_key }}" \
+            -H "Content-Type: application/json" \
+            -d '{"email":"writer1@readhub.test","password":"ReadHub123!"}' \
+            | head -30
+
       # El build vive en un paso PROPIO, no dentro de `webServer.command` de
       # Playwright. Si la compilación falla, aquí se ve el error real (TypeScript,
       # Next, lo que sea); metido dentro de Playwright se reportaba como un
