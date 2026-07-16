@@ -12,10 +12,13 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 
+// Ejemplos de arranque para la pantalla vacía. Son texto fijo, no se generan
+// desde los artículos: al cambiar el contenido publicado hay que actualizarlos
+// aquí para que sigan reflejando temas que el asistente pueda responder.
 const SUGGESTIONS = [
-  "¿Qué artículos hay sobre metodologías ágiles?",
-  "Resume lo que dice ReadHub sobre estadística descriptiva",
-  "¿Cuánto dura un sprint?",
+  "¿Qué es RAG y para qué sirve?",
+  "Resume lo que dice ReadHub sobre Claude",
+  "¿Cómo funciona Scrum?",
 ];
 
 /**
