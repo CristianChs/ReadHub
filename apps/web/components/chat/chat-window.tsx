@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { RotateCcw, Sparkles } from "lucide-react";
 
+import { useArticles } from "@/hooks/useArticles";
 import { useAuth } from "@/hooks/useAuth";
 import { useChat } from "@/hooks/useChat";
 import { ChatInput } from "@/components/chat/chat-input";
@@ -12,14 +13,12 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 
-// Ejemplos de arranque para la pantalla vacía. Son texto fijo, no se generan
-// desde los artículos: al cambiar el contenido publicado hay que actualizarlos
-// aquí para que sigan reflejando temas que el asistente pueda responder.
-const SUGGESTIONS = [
-  "¿Qué es RAG y para qué sirve?",
-  "Resume lo que dice ReadHub sobre Claude",
-  "¿Cómo funciona Scrum?",
-];
+// Respaldo para cuando aún no hay artículos publicados de los que derivar
+// ejemplos (plataforma vacía o listado todavía cargando).
+const FALLBACK_SUGGESTIONS = ["¿Qué artículos hay publicados en ReadHub?"];
+
+// Nº de sugerencias derivadas de los artículos más recientes.
+const SUGGESTION_COUNT = 3;
 
 /**
  * Ventana del asistente. Consume `useChat`, que a su vez habla con
@@ -28,10 +27,21 @@ const SUGGESTIONS = [
 export function ChatWindow() {
   const { user } = useAuth();
   const { messages, loading, error, sendMessage, stop, reset } = useChat();
+  const { articles } = useArticles();
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const userName = user?.email ?? "Tú";
   const isEmpty = messages.length === 0;
+
+  // Las sugerencias se derivan de los artículos publicados, no se mantienen a
+  // mano: así reflejan siempre lo que el asistente puede responder. Se toman los
+  // más recientes (article.service.list ya los devuelve por fecha descendente).
+  const suggestions = useMemo(() => {
+    if (articles.length === 0) return FALLBACK_SUGGESTIONS;
+    return articles
+      .slice(0, SUGGESTION_COUNT)
+      .map((article) => `Resume el artículo «${article.title}»`);
+  }, [articles]);
 
   // Se muestra el indicador solo mientras el asistente aún está RECUPERANDO:
   // en cuanto llega el evento `meta` ya hay fuentes que pintar, aunque el texto
@@ -79,7 +89,7 @@ export function ChatWindow() {
               description="El asistente responde únicamente con el conocimiento publicado en la plataforma, y cita sus fuentes."
             />
             <div className="flex flex-wrap justify-center gap-2 px-4">
-              {SUGGESTIONS.map((suggestion) => (
+              {suggestions.map((suggestion) => (
                 <Button
                   key={suggestion}
                   variant="outline"
