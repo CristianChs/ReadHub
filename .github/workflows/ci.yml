@@ -385,31 +385,28 @@ jobs:
             exit 1
           fi
 
-      # `vercel pull` trae la configuración del proyecto Y sus variables de
-      # entorno de producción. Por eso las claves de Supabase NO viven en este
-      # workflow: viven en Vercel, que es su sitio.
-      - name: Descargar la configuración del proyecto
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-        run: npx vercel@latest pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-
-      # Se compila en el runner (`--prebuilt` en el paso siguiente) en lugar de
-      # dejar que Vercel compile: así se despliega EXACTAMENTE el mismo commit
-      # que acaba de pasar las auditorías, no una recompilación posterior que
-      # nadie ha verificado.
-      - name: Build de producción para Vercel
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-        run: npx vercel@latest build --prod --token=${{ secrets.VERCEL_TOKEN }}
-
+      # El build ocurre EN VERCEL, no aquí. La alternativa (`vercel pull` +
+      # `vercel build` + `deploy --prebuilt`) permitiría desplegar el binario
+      # exacto que auditó el job anterior, pero es inviable con este proyecto:
+      #
+      #   Las variables NEXT_PUBLIC_* de Vercel están marcadas como "Sensitive",
+      #   y una variable Sensitive es de SOLO ESCRITURA: `vercel pull` no puede
+      #   leerla (y Vercel no permite revertir esa marca una vez guardada). El
+      #   build del runner salía entonces con `undefined` incrustado —Next fija
+      #   las NEXT_PUBLIC_* en tiempo de compilación—, el middleware llamaba a
+      #   createBrowserClient(undefined, undefined) y TODA la app respondía 500
+      #   (MIDDLEWARE_INVOCATION_FAILED), pese a que el despliegue salía "Ready".
+      #
+      # Compilando en Vercel el problema no puede reaparecer: el build vive
+      # donde viven las variables. Se recompila el mismo commit ya auditado, y
+      # el pipeline sigue siendo la puerta: este job solo existe si `checks`,
+      # `e2e` y `performance` pasaron.
       - name: Desplegar
         id: deploy
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
-          URL=$(npx vercel@latest deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+          URL=$(npx vercel@latest deploy --prod --yes --token=${{ secrets.VERCEL_TOKEN }})
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "::notice::Desplegado en $URL"

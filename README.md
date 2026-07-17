@@ -266,9 +266,23 @@ falla: es lo que explica *por qué* no se cumplió el umbral.
 Solo en **push a `main`**. Un Pull Request ejecuta las auditorías completas pero
 **no publica**: el pipeline dice si la rama es desplegable, sin desplegarla.
 
-Se compila en el runner y se sube con `--prebuilt` en lugar de dejar que Vercel
-recompile: así se despliega **exactamente el commit que pasó las auditorías**, y
-no una recompilación posterior que nadie ha verificado.
+**El build ocurre en Vercel, no en el runner.** Lo natural sería compilar aquí y
+subir con `--prebuilt` —desplegando el binario exacto que se auditó—, pero es
+inviable: las variables `NEXT_PUBLIC_*` del proyecto están marcadas como
+**Sensitive** en Vercel, y una variable Sensitive es de *solo escritura*:
+`vercel pull` no puede leerla, y la marca **no se puede revertir** una vez
+guardada. El build del runner salía con `undefined` incrustado (Next fija las
+`NEXT_PUBLIC_*` en tiempo de compilación), el middleware reventaba y la app
+entera devolvía 500 — con el despliegue marcado como *Ready*.
+
+Compilando en Vercel el fallo no puede reaparecer: el build vive donde viven las
+variables. Se recompila el mismo commit ya auditado, y el pipeline sigue siendo
+la puerta — el job solo existe si los tres anteriores pasaron.
+
+> ⚠️ **La integración Git de Vercel despliega en cada push, sin pasar por el
+> pipeline.** Mientras siga activa, el gate no protege nada: un commit con los
+> tests en rojo llega a producción igual. Para que el pipeline sea la única
+> entrada, desactiva el auto-deploy en **Vercel → Settings → Git**.
 
 **Secretos** (GitHub → *Settings → Secrets and variables → Actions*):
 
